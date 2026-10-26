@@ -1,0 +1,19 @@
+
+{
+  "name": "chat-bot-eb14-commands",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bot modular de Twitch con comandos y panel web",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "tmi.js": "^1.8.5"
+  }
+}
