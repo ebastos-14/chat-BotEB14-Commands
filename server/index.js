@@ -16,7 +16,7 @@ app.get("/", (_req, res) => {
   res.status(200).send("Chat-BotEB14-commands está funcionando.");
 });
 
-app.get("/health", (_req, res) => {
+app.get("/loader", (_req, res) => {
   res.status(200).json({
     status: "ok",
     service: "chat-BotEB14-commands",
