@@ -1,0 +1,24 @@
+
+{
+  "commands": [
+    {
+      "command": "!drops",
+      "enabled": true,
+      "channels": ["jaciitv", "ebastos14", "boteb14"],
+      "permissions": {
+        "moderatorOnly": enabl
+      },
+      "conditions": [
+        {
+          "category": "Albion Online",
+          "response": "Aquí irá el enlace de drops de Albion Online."
+        },
+        {
+          "category": "Aion 2",
+          "response": "Aquí irá el enlace de drops de Aion 2."
+        }
+      ],
+      "defaultResponse": "No hay una respuesta configurada para la categoría actual."
+    }
+  ]
+}
