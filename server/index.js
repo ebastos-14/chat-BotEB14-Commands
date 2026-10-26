@@ -1,4 +1,5 @@
 
+import { getChannelCategory } from "./twitch-api.js";
 import express from "express";
 import tmi from "tmi.js";
 
@@ -31,6 +32,7 @@ const server = app.listen(config.port, "0.0.0.0", () => {
 let client;
 let shuttingDown = false;
 
+
 async function handleChatMessage(channel, tags, message, self) {
   if (self || !message.trim()) return;
 
@@ -52,6 +54,13 @@ async function handleChatMessage(channel, tags, message, self) {
 
   try {
     if (await handleSimpleCommand(context)) return;
+
+    const usedCommand = message.trim().split(/\s+/)[0].toLowerCase();
+
+    if (usedCommand === "!drops") {
+      context.category = await getChannelCategory(channelName);
+    }
+
     if (await handleCategoryCommand(context)) return;
 
     await handleModularCommand(context);
@@ -61,6 +70,7 @@ async function handleChatMessage(channel, tags, message, self) {
     );
   }
 }
+
 
 async function startBot() {
   await loadSimpleCommands();
