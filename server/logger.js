@@ -7,24 +7,38 @@ const ROOT_DIR = path.resolve(
   ".."
 );
 
-function getLocation(metaUrl) {
-  if (!metaUrl) {
-    return "unknown:0";
+function getCallerLocation() {
+  const stack = new Error().stack?.split("\n") ?? [];
+
+  // Las primeras líneas corresponden al logger.
+  for (const entry of stack.slice(2)) {
+    const match = entry.match(
+      /^\s*at (?:(?:.+?) \()?(.+?):(\d+):(\d+)\)?$/
+    );
+
+    if (!match) continue;
+
+    const [, file, line] = match;
+
+    if (!file.startsWith("file://")) continue;
+
+    const absolutePath = fileURLToPath(file);
+    const relativePath = path
+      .relative(ROOT_DIR, absolutePath)
+      .split(path.sep)
+      .join("/");
+
+    if (relativePath === "server/logger.js") continue;
+
+    return `${relativePath}:${line}`;
   }
 
-  const filePath = fileURLToPath(metaUrl);
-  const relativePath = path
-    .relative(ROOT_DIR, filePath)
-    .split(path.sep)
-    .join("/");
-
-  return relativePath;
+  return "unknown:0";
 }
 
-function write(level, message, metaUrl, line) {
-  const location = `${getLocation(metaUrl)}:${line ?? 0}`;
+function write(level, message) {
+  const location = getCallerLocation();
   const label = level.padEnd(5, " ");
-
   const output = `[${label}] [${location}] ${message}`;
 
   if (level === "ERROR") {
@@ -37,21 +51,21 @@ function write(level, message, metaUrl, line) {
 }
 
 export const logger = {
-  info(message, metaUrl, line) {
-    write("INFO", message, metaUrl, line);
+  info(message) {
+    write("INFO", message);
   },
 
-  warn(message, metaUrl, line) {
-    write("WARN", message, metaUrl, line);
+  warn(message) {
+    write("WARN", message);
   },
 
-  error(message, metaUrl, line) {
-    write("ERROR", message, metaUrl, line);
+  error(message) {
+    write("ERROR", message);
   },
 
-  debug(message, metaUrl, line) {
+  debug(message) {
     if (process.env.LOG_LEVEL === "debug") {
-      write("DEBUG", message, metaUrl, line);
+      write("DEBUG", message);
     }
   }
 };
