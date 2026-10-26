@@ -12,14 +12,6 @@ export default {
       return false;
     }
 
-    if (!this.enabled) {
-      return false;
-    }
-
-    if (!this.channels.includes(context.channelName)) {
-      return false;
-    }
-
     await context.reply("¡Pong modular! El módulo funciona correctamente.");
     return true;
   }
