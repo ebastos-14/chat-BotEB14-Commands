@@ -66,14 +66,22 @@ export async function loadModularCommands() {
   }
 }
 
+
 export async function handleModularCommand(context) {
   for (const commandModule of modules) {
     try {
-      await commandModule.handleMessage(context);
+      const handled = await commandModule.handleMessage(context);
+
+      if (handled === true) {
+        return true;
+      }
     } catch (error) {
       logger.error(
         `Error en el módulo ${commandModule.name}: ${error.message}`
       );
     }
   }
+
+  return false;
 }
+
