@@ -70,7 +70,8 @@ export async function handleModularCommand(context) {
         )
       : [];
 
-    if (!allowedChannels.includes(context.channelName)) {
+    const channelName = context.channelName.replace(/^#/, "").trim().toLowerCase();
+    if (!allowedChannels.includes(channelName)) {
       continue;
     }
 
