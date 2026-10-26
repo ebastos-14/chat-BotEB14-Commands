@@ -6,7 +6,7 @@
       "enabled": true,
       "channels": ["jaciitv", "ebastos14", "boteb14"],
       "permissions": {
-        "moderatorOnly": enabled
+        "moderatorOnly": true
       },
       "conditions": [
         {
