@@ -3,6 +3,7 @@ import { getChannelCategory } from "./twitch-api.js";
 import express from "express";
 import tmi from "tmi.js";
 import { db } from "./firebase-admin.js";
+import firebaseRoutes from "./firebase-routes.js";
 
 import { config, validateChatConfig } from "./hub.js";
 import { logger } from "./logger.js";
@@ -13,6 +14,10 @@ import { loadModularCommands, handleModularCommand } from "./modular-commands.js
 const app = express();
 
 app.disable("x-powered-by");
+
+app.use(express.json());
+app.use("/api", firebaseRoutes);
+
 
 app.get("/", (_req, res) => {
   res.status(200).send("Chat-BotEB14-commands está funcionando.");
