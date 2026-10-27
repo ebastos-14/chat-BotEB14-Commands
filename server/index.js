@@ -1,28 +1,49 @@
-
 import { getChannelCategory } from "./twitch-api.js";
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import tmi from "tmi.js";
 import { db } from "./firebase-admin.js";
 import firebaseRoutes from "./firebase-routes.js";
 
 import { config, validateChatConfig } from "./hub.js";
 import { logger } from "./logger.js";
-import { loadSimpleCommands, handleSimpleCommand } from "./simple-commands.js";
-import { loadCategoryCommands, handleCategoryCommand } from "./category-commands.js";
-import { loadModularCommands, handleModularCommand } from "./modular-commands.js";
+import {
+  loadSimpleCommands,
+  handleSimpleCommand
+} from "./simple-commands.js";
+import {
+  loadCategoryCommands,
+  handleCategoryCommand
+} from "./category-commands.js";
+import {
+  loadModularCommands,
+  handleModularCommand
+} from "./modular-commands.js";
 
 const app = express();
 
 app.disable("x-powered-by");
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const publicDirectory = path.resolve(__dirname, "../public");
+
+// Middleware
 app.use(express.json());
+
+// Servir HTML, CSS, JavaScript y demás archivos de public/
+app.use(express.static(publicDirectory));
+
+// Rutas de Firebase para el panel de administración
 app.use("/api", firebaseRoutes);
 
-
+// Página principal: panel de administración
 app.get("/", (_req, res) => {
-  res.status(200).send("Chat-BotEB14-commands está funcionando.");
+  res.sendFile(path.join(publicDirectory, "index.html"));
 });
 
+// Endpoint de comprobación de Render
 app.get("/loader", (_req, res) => {
   res.status(200).json({
     status: "ok",
@@ -31,10 +52,12 @@ app.get("/loader", (_req, res) => {
   });
 });
 
+// Iniciar servidor web
 const server = app.listen(config.port, "0.0.0.0", () => {
   logger.info(`Servidor web iniciado en el puerto ${config.port}`);
 });
 
+// Comprobar conexión con Firestore
 db.listCollections()
   .then(() => {
     logger.info("[FIREBASE] Conexión con Firestore correcta.");
@@ -45,7 +68,6 @@ db.listCollections()
 
 let client;
 let shuttingDown = false;
-
 
 async function handleChatMessage(channel, tags, message, self) {
   if (self || !message.trim()) return;
@@ -85,7 +107,6 @@ async function handleChatMessage(channel, tags, message, self) {
   }
 }
 
-
 async function startBot() {
   await loadSimpleCommands();
   await loadCategoryCommands();
@@ -118,7 +139,9 @@ async function startBot() {
   });
 
   client.on("disconnected", (reason) => {
-    logger.warn(`Bot desconectado de Twitch: ${reason || "sin detalle"}`);
+    logger.warn(
+      `Bot desconectado de Twitch: ${reason || "sin detalle"}`
+    );
   });
 
   client.on("message", handleChatMessage);
