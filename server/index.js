@@ -6,6 +6,12 @@ import tmi from "tmi.js";
 import { db } from "./firebase-admin.js";
 import firebaseRoutes from "./firebase-routes.js";
 
+import {
+  initializePanelConfig,
+  watchPanelConfig
+} from "./panel-config.js";
+
+
 import { config, validateChatConfig } from "./hub.js";
 import { logger } from "./logger.js";
 import {
