@@ -1,0 +1,692 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat Bot EB14 | Panel</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #081120;
+      --panel: #101d31;
+      --panel2: #152540;
+      --border: #293d5c;
+      --text: #edf3ff;
+      --muted: #a9bbd8;
+      --blue: #4e55f5;
+      --green: #36dda0;
+      --red: #ff7385;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px system-ui, sans-serif;
+    }
+
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    .app {
+      max-width: 1200px;
+      margin: auto;
+      padding: 24px;
+    }
+
+    header, .toolbar, .row, .modal-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    header { margin-bottom: 24px; }
+
+    h1 { font-size: 25px; margin: 0 0 5px; }
+    h2 { font-size: 18px; margin: 0; }
+    p { color: var(--muted); margin: 4px 0; }
+
+    button {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px 14px;
+      background: var(--panel2);
+      color: var(--text);
+    }
+
+    button.primary, .tab.selected {
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+
+    button:hover { filter: brightness(1.13); }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .tab {
+      min-height: 54px;
+      font-weight: 650;
+    }
+
+    .toolbar {
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .toolbar input { flex: 1; min-width: 170px; }
+
+    input, textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #0b1729;
+      color: var(--text);
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: #7882ff;
+    }
+
+    .channels-panel, .command-card, .empty {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel);
+    }
+
+    .channels-panel {
+      padding: 16px;
+      margin-bottom: 22px;
+    }
+
+    .channels-panel summary {
+      cursor: pointer;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .channel-form {
+      display: flex;
+      gap: 9px;
+      margin: 14px 0;
+    }
+
+    .channel-form input { flex: 1; min-width: 0; }
+
+    .channel-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .channel-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      background: #1b2b46;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+    }
+
+    .channel-chip button {
+      padding: 0 3px;
+      border: 0;
+      background: transparent;
+      color: var(--red);
+    }
+
+    .list-heading {
+      display: grid;
+      grid-template-columns: minmax(130px, 1.1fr)
+        minmax(170px, 1.5fr) 65px 75px 48px;
+      gap: 12px;
+      padding: 12px 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .command-card {
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .command-row {
+      display: grid;
+      grid-template-columns: minmax(130px, 1.1fr)
+        minmax(170px, 1.5fr) 65px 75px 48px;
+      align-items: center;
+      gap: 12px;
+      padding: 15px 16px;
+    }
+
+    .command-row + .response {
+      border-top: 1px solid var(--border);
+    }
+
+    .command-name { font-weight: 750; }
+    .channel-names { color: var(--muted); overflow-wrap: anywhere; }
+
+    .status {
+      color: var(--green);
+      font-size: 21px;
+      text-align: center;
+    }
+
+    .status.off { color: var(--red); }
+
+    .edit {
+      padding: 8px;
+      font-size: 20px;
+      background: var(--blue);
+      border: 0;
+    }
+
+    .response {
+      padding: 12px 16px;
+      color: #d0dcf2;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .response strong {
+      color: var(--muted);
+      font-size: 12px;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .empty {
+      padding: 28px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      background: #020713c9;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      width: min(620px, 100%);
+      max-height: 95vh;
+      overflow-y: auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      padding: 22px;
+      box-shadow: 0 24px 80px #0008;
+    }
+
+    .modal-title { margin-bottom: 20px; }
+    .field { margin-bottom: 17px; }
+    .field label, .field-title {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+    }
+
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin: 15px 0;
+    }
+
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .check input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--green);
+    }
+
+    .modal-channels {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .modal-actions {
+      justify-content: flex-end;
+      margin-top: 22px;
+    }
+
+    #notice {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 18px;
+      background: #183c35;
+      border: 1px solid #27775d;
+      border-radius: 10px;
+      display: none;
+      z-index: 20;
+    }
+
+    @media (max-width: 700px) {
+      .app { padding: 15px; }
+      h1 { font-size: 21px; }
+      .tabs { gap: 5px; }
+      .tab { padding: 8px 4px; font-size: 13px; }
+      .list-heading { display: none; }
+
+      .command-row {
+        grid-template-columns: minmax(0, 1fr) 44px 44px 42px;
+        gap: 8px;
+      }
+
+      .command-row .channel-names {
+        grid-column: 1 / -1;
+        grid-row: 2;
+      }
+
+      .command-row .command-name { grid-column: 1; }
+      .command-row .mod-cell { grid-column: 2; }
+      .command-row .active-cell { grid-column: 3; }
+      .command-row .edit { grid-column: 4; grid-row: 1; }
+
+      .modal-channels { grid-template-columns: 1fr; }
+      .channel-form { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Chat Bot EB14</h1>
+        <p>Panel de administración de comandos</p>
+      </div>
+      <span>● <span style="color:var(--green)">Panel de prueba</span></span>
+    </header>
+
+    <nav class="tabs" aria-label="Categorías">
+      <button class="tab selected" data-tab="simple">Simple</button>
+      <button class="tab" data-tab="categoria">Categoría</button>
+      <button class="tab" data-tab="modular">Modular</button>
+    </nav>
+
+    <details class="channels-panel" open>
+      <summary>⚙ Administrar canales de Twitch</summary>
+      <p>Agrega aquí los canales que quieras poder seleccionar al editar comandos.</p>
+      <form id="channel-form" class="channel-form">
+        <input id="channel-input" placeholder="Nombre del canal, por ejemplo: jaciitv"
+          maxlength="25" required>
+        <button class="primary" type="submit">+ Agregar canal</button>
+      </form>
+      <div id="channel-list" class="channel-list"></div>
+    </details>
+
+    <section>
+      <div class="toolbar">
+        <input id="search" placeholder="Buscar comando...">
+        <button id="new-command" class="primary">+ Nuevo comando</button>
+      </div>
+
+      <div class="list-heading">
+        <span>Comando</span>
+        <span>Canales</span>
+        <span>Mod</span>
+        <span>Activo</span>
+        <span>Editar</span>
+      </div>
+
+      <div id="commands"></div>
+    </section>
+  </main>
+
+  <div id="modal-backdrop" class="modal-backdrop">
+    <section class="modal" role="dialog" aria-modal="true"
+      aria-labelledby="modal-title">
+      <div class="row modal-title">
+        <h2 id="modal-title">Editar comando</h2>
+        <button id="close-modal" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="command-form">
+        <div class="field">
+          <label for="command-name">Comando</label>
+          <input id="command-name" placeholder="!comando"
+            maxlength="40" required>
+        </div>
+
+        <div class="options">
+          <label class="check">
+            <input id="command-mod" type="checkbox">
+            Solo moderadores
+          </label>
+          <label class="check">
+            <input id="command-active" type="checkbox">
+            Activo
+          </label>
+        </div>
+
+        <div class="field">
+          <label for="command-response">Respuesta del bot</label>
+          <textarea id="command-response" maxlength="2000"
+            placeholder="Escribe la respuesta del comando..." required></textarea>
+        </div>
+
+        <div class="field">
+          <span class="field-title">Canales autorizados</span>
+          <div id="modal-channels" class="modal-channels"></div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="cancel-edit">Cancelar</button>
+          <button type="submit" class="primary">Guardar</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="notice" role="status"></div>
+
+  <script>
+    const defaultChannels = [
+      { name: "jaciitv", label: "JaciiTV" },
+      { name: "ebastos14", label: "EBastos14" },
+      { name: "boteb14", label: "BotEB14" }
+    ];
+
+    const defaultCommands = [
+      {
+        id: "simple-ping",
+        type: "simple",
+        command: "!ping",
+        channels: ["jaciitv", "ebastos14", "boteb14"],
+        moderatorOnly: false,
+        enabled: true,
+        response: "pong"
+      }
+    ];
+
+    const STORAGE_KEY = "chatbot-eb14-panel-v1";
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved && Array.isArray(saved.channels) &&
+            Array.isArray(saved.commands)) return saved;
+      } catch (error) {
+        console.warn("No se pudo leer la configuración local.", error);
+      }
+
+      return {
+        channels: defaultChannels,
+        commands: defaultCommands
+      };
+    }
+
+    let state = loadState();
+    let currentTab = "simple";
+    let editingId = null;
+
+    const $ = id => document.getElementById(id);
+
+    function persist() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function escapeHTML(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[char]);
+    }
+
+    function channelLabel(name) {
+      const channel = state.channels.find(item => item.name === name);
+      return channel ? channel.label : name;
+    }
+
+    function notify(message) {
+      $("notice").textContent = message;
+      $("notice").style.display = "block";
+      setTimeout(() => $("notice").style.display = "none", 2500);
+    }
+
+    function renderChannels() {
+      $("channel-list").innerHTML = state.channels.map(channel => `
+        <span class="channel-chip">
+          ${escapeHTML(channel.label)}
+          <small>@${escapeHTML(channel.name)}</small>
+          <button type="button" data-remove-channel="${escapeHTML(channel.name)}"
+            aria-label="Eliminar ${escapeHTML(channel.label)}">×</button>
+        </span>
+      `).join("") || "<p>No hay canales agregados.</p>";
+    }
+
+    function renderCommands() {
+      const search = $("search").value.trim().toLowerCase();
+
+      const commands = state.commands.filter(item =>
+        item.type === currentTab &&
+        (item.command.toLowerCase().includes(search) ||
+         item.response.toLowerCase().includes(search))
+      );
+
+      $("commands").innerHTML = commands.map(item => `
+        <article class="command-card">
+          <div class="command-row">
+            <div class="command-name">${escapeHTML(item.command)}</div>
+            <div class="channel-names">${
+              item.channels.length
+                ? item.channels.map(channelLabel).map(escapeHTML).join(", ")
+                : "Ningún canal"
+            }</div>
+            <div class="status mod-cell ${item.moderatorOnly ? "" : "off"}"
+              title="${item.moderatorOnly ? "Solo moderadores" : "Todos"}">
+              ${item.moderatorOnly ? "✓" : "—"}
+            </div>
+            <div class="status active-cell ${item.enabled ? "" : "off"}"
+              title="${item.enabled ? "Activo" : "Desactivado"}">
+              ${item.enabled ? "✓" : "✕"}
+            </div>
+            <button class="edit" type="button" data-edit="${escapeHTML(item.id)}"
+              aria-label="Editar ${escapeHTML(item.command)}">✎</button>
+          </div>
+          <div class="response">
+            <strong>Respuesta del comando</strong>${escapeHTML(item.response)}
+          </div>
+        </article>
+      `).join("") || `<div class="empty">No hay comandos en esta sección.</div>`;
+    }
+
+    function render() {
+      document.querySelectorAll("[data-tab]").forEach(button => {
+        button.classList.toggle("selected", button.dataset.tab === currentTab);
+      });
+      renderChannels();
+      renderCommands();
+    }
+
+    function openEditor(id = null) {
+      editingId = id;
+      const item = state.commands.find(command => command.id === id);
+
+      $("modal-title").textContent = item ? "Editar comando" : "Nuevo comando";
+      $("command-name").value = item?.command || "!";
+      $("command-mod").checked = item?.moderatorOnly ?? false;
+      $("command-active").checked = item?.enabled ?? true;
+      $("command-response").value = item?.response || "";
+
+      const selectedChannels = item?.channels || [];
+
+      $("modal-channels").innerHTML = state.channels.map(channel => `
+        <label class="check">
+          <input type="checkbox" name="allowed-channel"
+            value="${escapeHTML(channel.name)}"
+            ${selectedChannels.includes(channel.name) ? "checked" : ""}>
+          ${escapeHTML(channel.label)}
+          <small>@${escapeHTML(channel.name)}</small>
+        </label>
+      `).join("") || "<p>Agrega canales antes de asignarlos a un comando.</p>";
+
+      $("modal-backdrop").classList.add("open");
+      $("command-name").focus();
+    }
+
+    function closeEditor() {
+      $("modal-backdrop").classList.remove("open");
+      editingId = null;
+    }
+
+    document.querySelectorAll("[data-tab]").forEach(button => {
+      button.addEventListener("click", () => {
+        currentTab = button.dataset.tab;
+        $("search").value = "";
+        render();
+      });
+    });
+
+    $("channel-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const name = $("channel-input").value.trim()
+        .replace(/^@/, "").replace(/^#/, "").toLowerCase();
+
+      if (!/^[a-z0-9_]{1,25}$/.test(name)) {
+        return notify("Escribe un nombre de canal válido.");
+      }
+
+      if (state.channels.some(channel => channel.name === name)) {
+        return notify("Ese canal ya está agregado.");
+      }
+
+      state.channels.push({
+        name,
+        label: name
+      });
+
+      $("channel-input").value = "";
+      persist();
+      render();
+      notify("Canal agregado al panel.");
+    });
+
+    $("channel-list").addEventListener("click", event => {
+      const button = event.target.closest("[data-remove-channel]");
+      if (!button) return;
+
+      const name = button.dataset.removeChannel;
+      if (!confirm(`¿Eliminar @${name} del panel?`)) return;
+
+      state.channels = state.channels.filter(channel => channel.name !== name);
+
+      state.commands.forEach(command => {
+        command.channels = command.channels.filter(channel => channel !== name);
+      });
+
+      persist();
+      render();
+      notify("Canal eliminado de las selecciones.");
+    });
+
+    $("commands").addEventListener("click", event => {
+      const button = event.target.closest("[data-edit]");
+      if (button) openEditor(button.dataset.edit);
+    });
+
+    $("new-command").addEventListener("click", () => openEditor());
+
+    $("close-modal").addEventListener("click", closeEditor);
+    $("cancel-edit").addEventListener("click", closeEditor);
+
+    $("modal-backdrop").addEventListener("click", event => {
+      if (event.target === $("modal-backdrop")) closeEditor();
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeEditor();
+    });
+
+    $("command-form").addEventListener("submit", event => {
+      event.preventDefault();
+
+      const commandName = $("command-name").value.trim();
+
+      if (!/^![^\s!]+$/.test(commandName)) {
+        return notify("El comando debe comenzar con ! y no tener espacios.");
+      }
+
+      const duplicate = state.commands.some(item =>
+        item.type === currentTab &&
+        item.command.toLowerCase() === commandName.toLowerCase() &&
+        item.id !== editingId
+      );
+
+      if (duplicate) return notify("Ese comando ya existe en esta sección.");
+
+      const selectedChannels = [
+        ...$("modal-channels").querySelectorAll(
+          'input[name="allowed-channel"]:checked'
+        )
+      ].map(input => input.value);
+
+      const oldItem = state.commands.find(item => item.id === editingId);
+
+      const item = {
+        id: editingId || `cmd-${Date.now()}`,
+        type: currentTab,
+        command: commandName,
+        channels: selectedChannels,
+        moderatorOnly: $("command-mod").checked,
+        enabled: $("command-active").checked,
+        response: $("command-response").value
+      };
+
+      if (oldItem) {
+        Object.assign(oldItem, item);
+      } else {
+        state.commands.push(item);
+      }
+
+      persist();
+      closeEditor();
+      render();
+      notify("Guardado en este navegador. Todavía no se envía al bot.");
+    });
+
+    $("search").addEventListener("input", renderCommands);
+
+    render();
+  </script>
+</body>
+</html>
