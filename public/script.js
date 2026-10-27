@@ -11,6 +11,9 @@ import {
 } from
   "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
+// 1. CONFIGURACIÓN DE FIREBASE
+// Sustituye los cuatro valores por los de tu aplicación web.
+
 const firebaseConfig = {
   apiKey: "AIzaSyBnGmX_0p-1kcBWRXPh3cDZXRzloz98IVw",
   authDomain: "chat-boteb14-commands.firebaseapp.com",
@@ -22,81 +25,197 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const provider = new GoogleAuthProvider();
 
-const loginButton = document.getElementById("loginButton");
-const logoutButton = document.getElementById("logoutButton");
-const authStatus = document.getElementById("authStatus");
+// 2. ESTADO DEL PANEL
+
+let channels = [];
+let commands = [];
+
+let currentTab = "simple";
+let editingId = null;
+let nextCommandId = 1;
+let loading = false;
+
+const $ = id => document.getElementById(id);
+
+// 3. INICIO DE SESIÓN
+
+const loginButton = $("loginButton");
+const logoutButton = $("logoutButton");
+const authStatus = $("authStatus");
 
 loginButton.addEventListener("click", async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch (error) {
-    console.error("Error al iniciar sesión:", error);
-    authStatus.textContent = "No se pudo iniciar sesión.";
+    console.error("[Auth] Error iniciando sesión:", error);
+    setStatus("No se pudo iniciar sesión con Google.");
   }
 });
 
 logoutButton.addEventListener("click", async () => {
-  await signOut(auth);
-});
-
-onAuthStateChanged(auth, (user) => {
-  loginButton.hidden = Boolean(user);
-  logoutButton.hidden = !user;
-  authStatus.textContent = user
-    ? `Sesión iniciada: ${user.email}`
-    : "No has iniciado sesión.";
-});
-
-
-const channels = [
-  { id: "jaciitv", name: "JaciiTV" },
-  { id: "ebastos14", name: "EBastos14" },
-  { id: "boteb14", name: "BotEB14" }
-];
-
-let currentTab = "simple";
-let editingId = null;
-
-let commands = [
-  {
-    id: 1,
-    type: "simple",
-    name: "!ping",
-    channels: ["jaciitv", "ebastos14", "boteb14"],
-    mod: false,
-    active: true,
-    response: "pong"
-  },
-  {
-    id: 2,
-    type: "simple",
-    name: "!hola",
-    channels: ["jaciitv"],
-    mod: false,
-    active: true,
-    response: "¡Hola, chat!"
-  },
-  {
-    id: 3,
-    type: "categoria",
-    name: "!drops",
-    channels: ["jaciitv", "boteb14"],
-    mod: false,
-    active: true,
-    response: "Los enlaces de drops dependen del juego."
-  },
-  {
-    id: 4,
-    type: "modular",
-    name: "!pingmod",
-    channels: ["jaciitv"],
-    mod: true,
-    active: true,
-    response: "¡Pong modular!"
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("[Auth] Error cerrando sesión:", error);
+    setStatus("No se pudo cerrar la sesión.");
   }
-];
+});
 
-const $ = id => document.getElementById(id);
+function setStatus(message) {
+  if (authStatus) {
+    authStatus.textContent = message;
+  }
+}
+
+// 4. COMUNICACIÓN SEGURA CON EL SERVIDOR
+
+async function apiRequest(path, options = {}) {
+  const user = auth.currentUser;
+
+  if (!user) {
+    throw new Error("Debes iniciar sesión primero.");
+  }
+
+  const token = await user.getIdToken();
+
+  const response = await fetch(`/api${path}`, {
+    ...options,
+    headers: {
+      ...options.headers,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      result.error || `Error HTTP ${response.status}`
+    );
+  }
+
+  return result;
+}
+
+// 5. LEER Y GUARDAR CONFIGURACIÓN EN FIRESTORE
+
+async function readSection(section) {
+  const result = await apiRequest(`/config/${section}`);
+
+  return Array.isArray(result.data?.items)
+    ? result.data.items
+    : [];
+}
+
+async function saveSection(section, items) {
+  return apiRequest(`/config/${section}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      data: { items }
+    })
+  });
+}
+
+async function loadAllData() {
+  loading = true;
+  updateControls();
+
+  try {
+    const [
+      savedChannels,
+      simpleCommands,
+      categoryCommands,
+      modularCommands
+    ] = await Promise.all([
+      readSection("channels"),
+      readSection("simple"),
+      readSection("category"),
+      readSection("modular")
+    ]);
+
+    channels = savedChannels
+      .filter(channel =>
+        channel &&
+        typeof channel.id === "string" &&
+        typeof channel.name === "string"
+      );
+
+    commands = [
+      ...simpleCommands.map(command => ({
+        ...command,
+        type: "simple"
+      })),
+      ...categoryCommands.map(command => ({
+        ...command,
+        type: "categoria"
+      })),
+      ...modularCommands.map(command => ({
+        ...command,
+        type: "modular"
+      }))
+    ].filter(command =>
+      command &&
+      typeof command.name === "string" &&
+      Array.isArray(command.channels)
+    );
+
+    nextCommandId = Math.max(
+      Date.now(),
+      ...commands.map(command => Number(command.id) || 0)
+    ) + 1;
+
+    renderChannels();
+    renderCommands();
+
+    setStatus("Sesión autorizada. Configuración cargada.");
+  } catch (error) {
+    console.error("[Panel] Error cargando datos:", error);
+
+    setStatus(
+      `No se pudo cargar la configuración: ${error.message}`
+    );
+  } finally {
+    loading = false;
+    updateControls();
+  }
+}
+
+function updateControls() {
+  const signedIn = Boolean(auth.currentUser);
+
+  if (loginButton) loginButton.hidden = signedIn;
+  if (logoutButton) logoutButton.hidden = !signedIn;
+
+  document.querySelectorAll(
+    "#manageChannels, #addCommand"
+  ).forEach(button => {
+    button.disabled = !signedIn || loading;
+  });
+}
+
+// 6. AUTENTICACIÓN Y CARGA INICIAL
+
+onAuthStateChanged(auth, async user => {
+  updateControls();
+
+  if (!user) {
+    channels = [];
+    commands = [];
+
+    renderChannels();
+    renderCommands();
+
+    setStatus("Inicia sesión con Google para administrar el panel.");
+    return;
+  }
+
+  setStatus(`Verificando acceso: ${user.email || "usuario"}`);
+
+  await loadAllData();
+});
+
+// 7. UTILIDADES DE PRESENTACIÓN
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, char => ({
@@ -112,44 +231,72 @@ function channelName(id) {
   return channels.find(channel => channel.id === id)?.name || id;
 }
 
-function renderChannels() {
-  $("channelList").innerHTML = channels.map(channel => `
-    <div class="channel-choice">
-      <span>${escapeHTML(channel.name)}
-        <span class="notice">(${escapeHTML(channel.id)})</span>
-      </span>
-      <button type="button"
-        data-remove-channel="${escapeHTML(channel.id)}">×</button>
-    </div>
-  `).join("") || '<p class="empty">No hay canales registrados.</p>';
+function sectionForType(type) {
+  if (type === "categoria") return "category";
+  return type;
+}
 
-  $("editorChannels").innerHTML = channels.map(channel => `
-    <label class="channel-choice">
-      <input type="checkbox" name="editorChannel"
-        value="${escapeHTML(channel.id)}">
-      ${escapeHTML(channel.name)}
-      <span class="notice">(${escapeHTML(channel.id)})</span>
-    </label>
-  `).join("") || '<p class="empty">Agrega canales primero.</p>';
+function renderChannels() {
+  const channelList = $("channelList");
+  const editorChannels = $("editorChannels");
+
+  if (channelList) {
+    channelList.innerHTML = channels.map(channel => `
+      <div class="channel-choice">
+        <span>
+          ${escapeHTML(channel.name)}
+          <span class="notice">(${escapeHTML(channel.id)})</span>
+        </span>
+        <button
+          type="button"
+          data-remove-channel="${escapeHTML(channel.id)}"
+          ${loading ? "disabled" : ""}
+        >×</button>
+      </div>
+    `).join("") ||
+      '<p class="empty">No hay canales registrados.</p>';
+  }
+
+  if (editorChannels) {
+    editorChannels.innerHTML = channels.map(channel => `
+      <label class="channel-choice">
+        <input
+          type="checkbox"
+          name="editorChannel"
+          value="${escapeHTML(channel.id)}"
+        >
+        ${escapeHTML(channel.name)}
+        <span class="notice">(${escapeHTML(channel.id)})</span>
+      </label>
+    `).join("") ||
+      '<p class="empty">Agrega canales primero.</p>';
+  }
 }
 
 function renderCommands() {
+  const commandList = $("commandList");
+  if (!commandList) return;
+
   const visible = commands.filter(
     command => command.type === currentTab
   );
 
-  $("commandList").innerHTML = visible.map(command => `
+  commandList.innerHTML = visible.map(command => `
     <article class="command">
       <div class="command-head">
         <div>
-          <div class="command-name">${escapeHTML(command.name)}</div>
-          <div class="channels">${
-            command.channels.length
-              ? command.channels.map(id =>
-                  escapeHTML(channelName(id))
-                ).join(", ")
-              : "Sin canales asignados"
-          }</div>
+          <div class="command-name">
+            ${escapeHTML(command.name)}
+          </div>
+          <div class="channels">
+            ${
+              command.channels.length
+                ? command.channels.map(id =>
+                    escapeHTML(channelName(id))
+                  ).join(", ")
+                : "Sin canales asignados"
+            }
+          </div>
         </div>
 
         <div class="state mod-state ${command.mod ? "" : "off"}">
@@ -160,35 +307,54 @@ function renderCommands() {
           ${command.active ? "✓ Activo" : "✕ Inactivo"}
         </div>
 
-        <button type="button" class="edit"
-          data-edit="${command.id}" aria-label="Editar comando">✎</button>
+        <button
+          type="button"
+          class="edit"
+          data-edit="${escapeHTML(command.id)}"
+          aria-label="Editar comando"
+          ${loading ? "disabled" : ""}
+        >✎</button>
       </div>
 
-      <div class="response">${
-        escapeHTML(command.response) ||
-        '<span class="notice">Sin respuesta configurada</span>'
-      }</div>
+      <div class="response">
+        ${
+          escapeHTML(command.response || "") ||
+          '<span class="notice">Sin respuesta configurada</span>'
+        }
+      </div>
     </article>
   `).join("") ||
-    '<div class="empty">Todavía no hay comandos en esta sección.</div>';
+    '<div class="empty">No hay comandos guardados en esta sección.</div>';
 }
 
+// 8. EDITOR DE COMANDOS
+
 function openEditor(id = null) {
+  if (!auth.currentUser || loading) return;
+
   editingId = id;
-  const command = commands.find(item => item.id === id);
+
+  const command = commands.find(
+    item => String(item.id) === String(id)
+  );
 
   $("editorTitle").textContent =
     command ? "Editar comando" : "Nuevo comando";
 
   $("commandName").value = command?.name || "!";
   $("commandMod").checked = command?.mod || false;
-  $("commandActive").checked = command ? command.active : true;
+  $("commandActive").checked =
+    command ? command.active !== false : true;
   $("commandResponse").value = command?.response || "";
 
   renderChannels();
 
-  document.querySelectorAll('[name="editorChannel"]').forEach(input => {
-    input.checked = Boolean(command?.channels.includes(input.value));
+  document.querySelectorAll(
+    '[name="editorChannel"]'
+  ).forEach(input => {
+    input.checked = Boolean(
+      command?.channels.includes(input.value)
+    );
   });
 
   $("editorOverlay").classList.add("open");
@@ -203,7 +369,6 @@ function closeEditor() {
 document.querySelectorAll("[data-tab]").forEach(button => {
   button.addEventListener("click", () => {
     currentTab = button.dataset.tab;
-
     document.querySelectorAll("[data-tab]").forEach(tab => {
       tab.classList.toggle("selected", tab === button);
     });
@@ -213,6 +378,8 @@ document.querySelectorAll("[data-tab]").forEach(button => {
 });
 
 $("manageChannels").addEventListener("click", () => {
+  if (!auth.currentUser || loading) return;
+
   $("channelManager").hidden = !$("channelManager").hidden;
 
   if (!$("channelManager").hidden) {
@@ -224,6 +391,7 @@ $("manageChannels").addEventListener("click", () => {
 });
 
 $("addCommand").addEventListener("click", () => openEditor());
+
 $("closeEditor").addEventListener("click", closeEditor);
 $("cancelEditor").addEventListener("click", closeEditor);
 
@@ -235,8 +403,12 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape") closeEditor();
 });
 
-$("channelForm").addEventListener("submit", event => {
+// 9. GESTIÓN PERSISTENTE DE CANALES
+
+$("channelForm").addEventListener("submit", async event => {
   event.preventDefault();
+
+  if (!auth.currentUser || loading) return;
 
   const id = $("newChannel").value
     .trim()
@@ -253,39 +425,99 @@ $("channelForm").addEventListener("submit", event => {
     return;
   }
 
-  channels.push({ id, name: id });
-  $("newChannel").value = "";
-  renderChannels();
+  const updatedChannels = [...channels, { id, name: id }];
+
+  loading = true;
+  updateControls();
+
+  try {
+    await saveSection("channels", updatedChannels);
+
+    channels = updatedChannels;
+    $("newChannel").value = "";
+
+    renderChannels();
+    renderCommands();
+
+    setStatus("Canal guardado correctamente.");
+  } catch (error) {
+    console.error("[Panel] Error guardando canal:", error);
+    alert(`No se pudo guardar el canal: ${error.message}`);
+  } finally {
+    loading = false;
+    updateControls();
+    renderChannels();
+    renderCommands();
+  }
 });
 
-$("channelList").addEventListener("click", event => {
+$("channelList").addEventListener("click", async event => {
   const button = event.target.closest("[data-remove-channel]");
-  if (!button) return;
+  if (!button || !auth.currentUser || loading) return;
 
   const id = button.dataset.removeChannel;
 
-  if (!confirm(`¿Retirar ${id} de los canales disponibles?`)) return;
+  if (!confirm(`¿Retirar ${id} de los canales disponibles?`)) {
+    return;
+  }
 
-  const index = channels.findIndex(channel => channel.id === id);
-  if (index !== -1) channels.splice(index, 1);
+  const updatedChannels = channels.filter(
+    channel => channel.id !== id
+  );
 
-  commands.forEach(command => {
-    command.channels = command.channels.filter(
+  const updatedCommands = commands.map(command => ({
+    ...command,
+    channels: command.channels.filter(
       channelId => channelId !== id
-    );
-  });
+    )
+  }));
 
-  renderChannels();
-  renderCommands();
+  loading = true;
+  updateControls();
+
+  try {
+    // Guardar los canales y los comandos afectados.
+    await saveSection("channels", updatedChannels);
+
+    for (const section of ["simple", "category", "modular"]) {
+      const sectionCommands = updatedCommands
+        .filter(command => sectionForType(command.type) === section)
+        .map(({ type, ...command }) => command);
+
+      await saveSection(section, sectionCommands);
+    }
+
+    channels = updatedChannels;
+    commands = updatedCommands;
+
+    renderChannels();
+    renderCommands();
+
+    setStatus("Canal retirado y configuración actualizada.");
+  } catch (error) {
+    console.error("[Panel] Error retirando canal:", error);
+    alert(`No se pudo completar la operación: ${error.message}`);
+
+    await loadAllData();
+  } finally {
+    loading = false;
+    updateControls();
+    renderChannels();
+    renderCommands();
+  }
 });
+
+// 10. EDITAR Y GUARDAR COMANDOS EN FIRESTORE
 
 $("commandList").addEventListener("click", event => {
   const button = event.target.closest("[data-edit]");
-  if (button) openEditor(Number(button.dataset.edit));
+  if (button) openEditor(button.dataset.edit);
 });
 
-$("editorForm").addEventListener("submit", event => {
+$("editorForm").addEventListener("submit", async event => {
   event.preventDefault();
+
+  if (!auth.currentUser || loading) return;
 
   const name = $("commandName").value.trim().toLowerCase();
 
@@ -297,7 +529,7 @@ $("editorForm").addEventListener("submit", event => {
   const duplicate = commands.some(command =>
     command.type === currentTab &&
     command.name.toLowerCase() === name &&
-    command.id !== editingId
+    String(command.id) !== String(editingId)
   );
 
   if (duplicate) {
@@ -312,27 +544,56 @@ $("editorForm").addEventListener("submit", event => {
   ].map(input => input.value);
 
   const data = {
+    id: editingId ?? nextCommandId++,
     name,
-    type: currentTab,
     channels: selectedChannels,
     mod: $("commandMod").checked,
     active: $("commandActive").checked,
     response: $("commandResponse").value.trim()
   };
 
-  if (editingId !== null) {
-    const index = commands.findIndex(
-      command => command.id === editingId
-    );
+  const previousCommands = [...commands];
 
-    commands[index] = { ...commands[index], ...data };
-  } else {
-    commands.push({ id: Date.now(), ...data });
+  const updatedCommands = editingId !== null
+    ? commands.map(command =>
+        String(command.id) === String(editingId)
+          ? { ...command, ...data, type: currentTab }
+          : command
+      )
+    : [...commands, { ...data, type: currentTab }];
+
+  const section = sectionForType(currentTab);
+
+  const sectionCommands = updatedCommands
+    .filter(command => sectionForType(command.type) === section)
+    .map(({ type, ...command }) => command);
+
+  loading = true;
+  updateControls();
+
+  try {
+    await saveSection(section, sectionCommands);
+
+    commands = updatedCommands;
+
+    closeEditor();
+    renderCommands();
+
+    setStatus("Comando guardado en Firestore.");
+  } catch (error) {
+    commands = previousCommands;
+
+    console.error("[Panel] Error guardando comando:", error);
+    alert(`No se pudo guardar el comando: ${error.message}`);
+
+    renderCommands();
+  } finally {
+    loading = false;
+    updateControls();
   }
-
-  closeEditor();
-  renderCommands();
 });
+
+// 11. RENDER INICIAL SIN DATOS FICTICIOS
 
 renderChannels();
 renderCommands();
