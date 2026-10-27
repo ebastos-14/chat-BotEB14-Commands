@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -10,63 +9,111 @@
   <script type="module" src="script.js"></script>
 </head>
 <body>
-  <button id="loginButton">Iniciar sesión con Google</button>
-  <button id="logoutButton" hidden>Cerrar sesión</button>
-  <p id="authStatus">No has iniciado sesión.</p>
   <main class="app">
-    <header>
+    <header class="app-header">
       <div>
         <h1>Chat Bot EB14</h1>
         <p>Panel de administración de comandos</p>
       </div>
-      <span class="notice">Editor visual · Primera versión</span>
+
+      <div class="account">
+        <button id="loginButton" class="primary" type="button">
+          Iniciar sesión con Google
+        </button>
+
+        <button id="logoutButton" type="button" hidden>
+          Cerrar sesión
+        </button>
+
+        <p id="authStatus" class="notice" aria-live="polite">
+          Inicia sesión para cargar la configuración.
+        </p>
+      </div>
     </header>
 
     <nav class="tabs" aria-label="Categorías de comandos">
-      <button class="tab selected" data-tab="simple">Simple</button>
-      <button class="tab" data-tab="categoria">Categoría</button>
-      <button class="tab" data-tab="modular">Modular</button>
+      <button class="tab selected" data-tab="simple" type="button">
+        Simple
+      </button>
+
+      <button class="tab" data-tab="categoria" type="button">
+        Categoría
+      </button>
+
+      <button class="tab" data-tab="modular" type="button">
+        Modular
+      </button>
     </nav>
 
     <div class="toolbar">
-      <button id="manageChannels">＋ Gestionar canales</button>
-      <button class="primary" id="addCommand">＋ Nuevo comando</button>
+      <button id="manageChannels" type="button">
+        ＋ Gestionar canales
+      </button>
+
+      <button class="primary" id="addCommand" type="button">
+        ＋ Nuevo comando
+      </button>
     </div>
 
     <section id="channelManager" class="panel" hidden>
       <h2>Canales disponibles</h2>
-      <p>Estos canales aparecerán al editar cualquier comando.</p>
+      <p>Los canales registrados aparecerán al editar los comandos.</p>
 
       <form id="channelForm" class="toolbar">
-        <input id="newChannel" type="text"
-          placeholder="Nombre del canal de Twitch" required>
-        <button class="primary" type="submit">Agregar canal</button>
+        <input
+          id="newChannel"
+          type="text"
+          placeholder="Nombre del canal de Twitch"
+          autocomplete="off"
+          required
+        >
+
+        <button class="primary" type="submit">
+          Agregar canal
+        </button>
       </form>
 
       <div id="channelList" class="channel-list"></div>
     </section>
 
-    <section id="commandList" aria-live="polite"></section>
+    <section id="commandList" aria-live="polite">
+      <div class="empty">
+        Inicia sesión con Google para cargar los comandos guardados.
+      </div>
+    </section>
 
-    <p class="notice">
-      Versión de prueba: los cambios todavía no se guardan permanentemente.
+    <p class="notice" id="panelNotice">
+      Los comandos y canales se cargarán desde Firestore al iniciar sesión.
     </p>
   </main>
 
-  <div class="overlay" id="editorOverlay"
-    role="dialog" aria-modal="true" aria-labelledby="editorTitle">
-
+  <div
+    class="overlay"
+    id="editorOverlay"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="editorTitle"
+  >
     <form class="modal" id="editorForm">
       <div class="modal-head">
         <h2 id="editorTitle">Editar comando</h2>
-        <button type="button" class="close" id="closeEditor"
-          aria-label="Cerrar">×</button>
+
+        <button
+          type="button"
+          class="close"
+          id="closeEditor"
+          aria-label="Cerrar"
+        >×</button>
       </div>
 
       <div class="field">
         <label for="commandName">Comando</label>
-        <input id="commandName" type="text"
-          placeholder="!comando" required>
+        <input
+          id="commandName"
+          type="text"
+          placeholder="!comando"
+          required
+        >
       </div>
 
       <div class="checkline field">
@@ -88,13 +135,20 @@
 
       <div class="field">
         <label for="commandResponse">Respuesta del bot</label>
-        <textarea id="commandResponse"
-          placeholder="Escribe la respuesta del comando..."></textarea>
+        <textarea
+          id="commandResponse"
+          placeholder="Escribe la respuesta del comando..."
+        ></textarea>
       </div>
 
       <div class="modal-actions">
-        <button type="button" id="cancelEditor">Cancelar</button>
-        <button class="primary" type="submit">Guardar</button>
+        <button type="button" id="cancelEditor">
+          Cancelar
+        </button>
+
+        <button class="primary" type="submit">
+          Guardar
+        </button>
       </div>
     </form>
   </div>
