@@ -1,4 +1,53 @@
 
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from
+  "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBnGmX_0p-1kcBWRXPh3cDZXRzloz98IVw",
+  authDomain: "chat-boteb14-commands.firebaseapp.com",
+  projectId: "chat-boteb14-commands",
+  appId: "1:265530804480:web:e2f30ecb97b6e920facbe5"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const provider = new GoogleAuthProvider();
+
+const loginButton = document.getElementById("loginButton");
+const logoutButton = document.getElementById("logoutButton");
+const authStatus = document.getElementById("authStatus");
+
+loginButton.addEventListener("click", async () => {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    console.error("Error al iniciar sesión:", error);
+    authStatus.textContent = "No se pudo iniciar sesión.";
+  }
+});
+
+logoutButton.addEventListener("click", async () => {
+  await signOut(auth);
+});
+
+onAuthStateChanged(auth, (user) => {
+  loginButton.hidden = Boolean(user);
+  logoutButton.hidden = !user;
+  authStatus.textContent = user
+    ? `Sesión iniciada: ${user.email}`
+    : "No has iniciado sesión.";
+});
+
+
 const channels = [
   { id: "jaciitv", name: "JaciiTV" },
   { id: "ebastos14", name: "EBastos14" },
