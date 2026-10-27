@@ -2,6 +2,7 @@
 import { getChannelCategory } from "./twitch-api.js";
 import express from "express";
 import tmi from "tmi.js";
+import { db } from "./firebase-admin.js";
 
 import { config, validateChatConfig } from "./hub.js";
 import { logger } from "./logger.js";
@@ -28,6 +29,14 @@ app.get("/loader", (_req, res) => {
 const server = app.listen(config.port, "0.0.0.0", () => {
   logger.info(`Servidor web iniciado en el puerto ${config.port}`);
 });
+
+db.listCollections()
+  .then(() => {
+    logger.info("[FIREBASE] Conexión con Firestore correcta.");
+  })
+  .catch((error) => {
+    logger.error(`[FIREBASE] Error de conexión: ${error.message}`);
+  });
 
 let client;
 let shuttingDown = false;
