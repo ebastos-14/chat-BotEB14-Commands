@@ -113,10 +113,15 @@ async function handleChatMessage(channel, tags, message, self) {
   }
 }
 
+
 async function startBot() {
+  await initializePanelConfig();
+  watchPanelConfig();
+
   await loadSimpleCommands();
   await loadCategoryCommands();
   await loadModularCommands();
+
 
   if (!validateChatConfig()) {
     logger.warn(
