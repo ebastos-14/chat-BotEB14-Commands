@@ -19,7 +19,7 @@ let commands = [
   {
     id: 2, type: "simple", name: "!hola",
     channels: ["jaciitv"],
-    mod: false, active: true, response: "¡Hola, chat!"
+    mod: false, active: true, response: "¡Hola, shat!"
   },
   {
     id: 3, type: "categoria", name: "!drops",
