@@ -3,6 +3,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { logger } from "./logger.js";
+import { getPanelConfig } from "./panel-config.js";
 
 const MODULES_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -10,6 +11,28 @@ const MODULES_DIR = path.resolve(
 );
 
 let modules = [];
+
+function normalizeChannel(channel) {
+  return String(channel ?? "")
+    .replace(/^#/, "")
+    .trim()
+    .toLowerCase();
+}
+
+function getPanelModuleConfig(moduleName) {
+  const panelConfig = getPanelConfig("modular");
+  const items = Array.isArray(panelConfig?.items)
+    ? panelConfig.items
+    : [];
+
+  return items.find(item => {
+    const name = String(item.name ?? item.command ?? "")
+      .trim()
+      .toLowerCase();
+
+    return name === moduleName.trim().toLowerCase();
+  });
+}
 
 export async function loadModularCommands() {
   modules = [];
@@ -45,7 +68,9 @@ export async function loadModularCommands() {
         typeof commandModule.name !== "string" ||
         typeof commandModule.handleMessage !== "function"
       ) {
-        logger.warn(`Módulo "${entry.name}" ignorado: configuración inválida.`);
+        logger.warn(
+          `Módulo "${entry.name}" ignorado: configuración inválida.`
+        );
         continue;
       }
 
@@ -61,17 +86,44 @@ export async function loadModularCommands() {
 }
 
 export async function handleModularCommand(context) {
-  for (const commandModule of modules) {
-    if (commandModule.enabled === false) continue;
+  const channelName = normalizeChannel(context.channelName);
 
-    const allowedChannels = Array.isArray(commandModule.channels)
-      ? commandModule.channels.map(channel =>
-          channel.replace(/^#/, "").trim().toLowerCase()
-        )
+  for (const commandModule of modules) {
+    const panelModule = getPanelModuleConfig(commandModule.name);
+
+    // Si existe configuración en el panel, esta tiene prioridad.
+    // Si no existe, se conserva la configuración original del módulo.
+    const isEnabled = panelModule
+      ? panelModule.active !== false
+      : commandModule.enabled !== false;
+
+    if (!isEnabled) {
+      continue;
+    }
+
+    const configuredChannels = panelModule
+      ? panelModule.channels
+      : commandModule.channels;
+
+    const allowedChannels = Array.isArray(configuredChannels)
+      ? configuredChannels.map(normalizeChannel)
       : [];
 
-    const channelName = context.channelName.replace(/^#/, "").trim().toLowerCase();
     if (!allowedChannels.includes(channelName)) {
+      continue;
+    }
+
+    // "mod" es el campo que utiliza actualmente el panel para NeedMod.
+    const moderatorsOnly = panelModule
+      ? panelModule.mod === true
+      : commandModule.mod === true ||
+        commandModule.needMod === true;
+
+    if (
+      moderatorsOnly &&
+      context.isMod !== true &&
+      context.isBroadcaster !== true
+    ) {
       continue;
     }
 
