@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "./logger.js";
+import { getPanelConfig } from "./panel-config.js";
 
 const ROOT_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -18,53 +19,111 @@ const COMMANDS_FILE = path.join(
 
 let commands = [];
 
-export async function loadSimpleCommands() {
-  try {
-    const content = await readFile(COMMANDS_FILE, "utf8");
-    const data = JSON.parse(content);
+function normalizeChannel(channel) {
+  return String(channel || "")
+    .replace(/^#/, "")
+    .trim()
+    .toLowerCase();
+}
 
-    if (!Array.isArray(data.commands)) {
-      throw new Error('El archivo debe contener una lista "commands".');
+function getValidCommands(data) {
+  if (!Array.isArray(data?.commands)) {
+    return [];
+  }
+
+  return data.commands.filter((item) => {
+    const valid =
+      typeof item.command === "string" &&
+      typeof item.response === "string" &&
+      typeof item.enabled === "boolean" &&
+      Array.isArray(item.channels);
+
+    if (!valid) {
+      logger.warn(
+        `Comando simple ignorado por configuración inválida: ${
+          item?.command || "sin nombre"
+        }`
+      );
     }
 
-    commands = data.commands.filter((item) => {
-      const valid =
-        typeof item.command === "string" &&
-        typeof item.response === "string" &&
-        typeof item.enabled === "boolean" &&
-        Array.isArray(item.channels);
+    return valid;
+  });
+}
 
-      if (!valid) {
-        logger.warn(
-          `Comando simple ignorado por configuración inválida: ${
-            item.command || "sin nombre"
-          }`
-        );
-      }
+async function loadCommandsFromFile() {
+  const content = await readFile(COMMANDS_FILE, "utf8");
+  const data = JSON.parse(content);
 
-      return valid;
-    });
+  if (!Array.isArray(data.commands)) {
+    throw new Error('El archivo debe contener una lista "commands".');
+  }
 
-    logger.info(`Comandos simples cargados: ${commands.length}`);
+  return getValidCommands(data);
+}
+
+export async function loadSimpleCommands() {
+  try {
+    const panelConfig = getPanelConfig("simple");
+
+    // Si Firebase ya tiene comandos, usar esa configuración.
+    if (Array.isArray(panelConfig?.items)) {
+      commands = getValidCommands({
+        commands: panelConfig.items
+      });
+
+      logger.info(
+        `Comandos simples cargados desde Firebase: ${commands.length}`
+      );
+
+      return commands.length;
+    }
+
+    // Si Firebase todavía no tiene datos, usar el JSON existente.
+    commands = await loadCommandsFromFile();
+
+    logger.info(
+      `Comandos simples cargados desde el archivo JSON: ${commands.length}`
+    );
+
     return commands.length;
   } catch (error) {
-    logger.error(`No se pudieron cargar los comandos simples: ${error.message}`);
+    logger.error(
+      `No se pudieron cargar los comandos simples: ${error.message}`
+    );
+
     commands = [];
     return 0;
   }
 }
 
 export async function handleSimpleCommand(context) {
+  const panelConfig = getPanelConfig("simple");
+
+  // Consultar Firebase en cada mensaje para usar los cambios recientes.
+  if (Array.isArray(panelConfig?.items)) {
+    commands = getValidCommands({
+      commands: panelConfig.items
+    });
+  }
+
   const message = context.message.trim();
+  const firstWord = message.split(/\s+/)[0].toLowerCase();
+
   const command = commands.find(
-    (item) => item.command.toLowerCase() === message.split(/\s+/)[0].toLowerCase()
+    (item) => item.command.toLowerCase() === firstWord
   );
 
-  if (!command || !command.enabled) return false;
+  if (!command || !command.enabled) {
+    return false;
+  }
 
-  const channel = context.channelName.toLowerCase();
+  const channel = normalizeChannel(context.channelName);
 
-  if (!command.channels.some((name) => name.replace(/^#/, "").toLowerCase() === channel)) {
+  const allowedChannels = command.channels.some(
+    (name) => normalizeChannel(name) === channel
+  );
+
+  if (!allowedChannels) {
     return false;
   }
 
