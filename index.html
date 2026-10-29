@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapeador de Coordenadas y Hotspots</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 py-4 px-6 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-xl font-bold text-indigo-400 flex items-center gap-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Mapeador de Coordenadas (Image Hotspots)
+                </h1>
+                <p class="text-xs text-slate-400">Sube una imagen, haz clic para registrar puntos y exporta las coordenadas para web o Canva.</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <label class="cursor-pointer bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition shadow">
+                    📁 Cargar Imagen
+                    <input type="file" id="imageLoader" accept="image/*" class="hidden">
+                </label>
+                <button id="clearBtn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium px-4 py-2 rounded-lg transition">
+                    🗑️ Limpiar Puntos
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left / Center: Image Workspace -->
+        <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center relative min-h-[400px] overflow-hidden">
+            <div id="dropZone" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center border-2 border-dashed border-slate-600 rounded-2xl bg-slate-800/80 z-10 transition hover:border-indigo-500 cursor-pointer">
+                <svg class="w-16 h-16 text-slate-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <p class="text-sm font-medium text-slate-300">Arrastra tu imagen aquí o haz clic arriba en <span class="text-indigo-400">"Cargar Imagen"</span></p>
+                <p class="text-xs text-slate-500 mt-1">Soporta PNG, JPG, WEBP</p>
+            </div>
+
+            <!-- Image Container -->
+            <div id="imageContainer" class="relative inline-block max-w-full overflow-hidden rounded-lg shadow-lg select-none hidden cursor-crosshair">
+                <img id="targetImage" src="" alt="Imagen de trabajo" class="max-w-full h-auto block pointer-events-none">
+                <div id="pinsLayer" class="absolute inset-0 pointer-events-none"></div>
+            </div>
+
+            <div class="mt-3 text-xs text-slate-400 flex items-center justify-between w-full px-2" id="imageInfo">
+                <span>Estado: Esperando imagen</span>
+                <span id="coordDisplay">X: 0, Y: 0</span>
+            </div>
+        </div>
+
+        <!-- Right Panel: Hotspots & Export -->
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-col h-[600px] lg:h-auto">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center justify-between">
+                <span>Puntos Registrados</span>
+                <span id="pointCount" class="bg-indigo-900 text-indigo-300 px-2 py-0.5 rounded-full text-xs font-bold">0</span>
+            </h2>
+
+            <!-- Points List -->
+            <div id="pointsList" class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar mb-4 text-sm">
+                <div class="text-center text-slate-500 py-10">Haz clic sobre la imagen para añadir puntos de mapeo.</div>
+            </div>
+
+            <!-- Export Formats -->
+            <div class="border-t border-slate-700 pt-3">
+                <label class="block text-xs font-medium text-slate-400 mb-1">Formato de Exportación:</label>
+                <select id="exportFormat" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-slate-200 mb-3 focus:outline-none focus:border-indigo-500">
+                    <option value="json">JSON (Estructurado)</option>
+                    <option value="canva">Guía de Referencia Canva (Porcentaje)</option>
+                    <option value="html">HTML Image Map (&lt;map&gt; / &lt;area&gt;)</option>
+                    <option value="css">CSS Hotspots (Absolute positioning)</option>
+                </select>
+
+                <div class="flex gap-2">
+                    <button id="exportBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm py-2 rounded-lg transition">
+                        📋 Copiar Código / Datos
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none z-50">
+        ¡Copiado al portapapeles!
+    </div>
+
+    <!-- Script Logic -->
+    <script>
+        const imageLoader = document.getElementById('imageLoader');
+        const dropZone = document.getElementById('dropZone');
+        const imageContainer = document.getElementById('imageContainer');
+        const targetImage = document.getElementById('targetImage');
+        const pinsLayer = document.getElementById('pinsLayer');
+        const pointsList = document.getElementById('pointsList');
+        const pointCount = document.getElementById('pointCount');
+        const clearBtn = document.getElementById('clearBtn');
+        const coordDisplay = document.getElementById('coordDisplay');
+        const imageInfo = document.getElementById('imageInfo').querySelector('span:first-child');
+        const exportBtn = document.getElementById('exportBtn');
+        const exportFormat = document.getElementById('exportFormat');
+        const toast = document.getElementById('toast');
+
+        let points = [];
+        let naturalWidth = 0;
+        let naturalHeight = 0;
+
+        // Load Image handler
+        imageLoader.addEventListener('change', handleImageUpload);
+        
+        // Drag and drop support
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500'); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('border-indigo-500'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-indigo-500');
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                loadImageFromFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function handleImageUpload(e) {
+            if (e.target.files && e.target.files[0]) {
+                loadImageFromFile(e.target.files[0]);
+            }
+        }
+
+        function loadImageFromFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                targetImage.src = event.target.result;
+                targetImage.onload = function() {
+                    naturalWidth = targetImage.naturalWidth;
+                    naturalHeight = targetImage.naturalHeight;
+                    dropZone.classList.add('hidden');
+                    imageContainer.classList.remove('hidden');
+                    imageInfo.textContent = `Resolución: ${naturalWidth}x${naturalHeight}px`;
+                    points = [];
+                    renderPoints();
+                }
+            }
+            reader.readAsDataURL(file);
+        }
+
+        // Click on image to register coordinates
+        imageContainer.addEventListener('click', function(e) {
+            const rect = targetImage.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            // Calculate percentage
+            const xPercent = parseFloat(((clickX / rect.width) * 100).toFixed(2));
+            const yPercent = parseFloat(((clickY / rect.height) * 100).toFixed(2));
+
+            // Calculate exact pixels based on natural image size
+            const xPixel = Math.round((clickX / rect.width) * naturalWidth);
+            const yPixel = Math.round((clickY / rect.height) * naturalHeight);
+
+            const newPoint = {
+                id: points.length + 1,
+                xPercent,
+                yPercent,
+                xPixel,
+                yPixel,
+                label: `Punto ${points.length + 1}`
+            };
+
+            points.push(newPoint);
+            renderPoints();
+        });
+
+        // Track coordinates on mousemove over image
+        imageContainer.addEventListener('mousemove', function(e) {
+            const rect = targetImage.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            if (clickX >= 0 && clickY >= 0 && clickX <= rect.width && clickY <= rect.height) {
+                const xP = ((clickX / rect.width) * 100).toFixed(1);
+                const yP = ((clickY / rect.height) * 100).toFixed(1);
+                const xPx = Math.round((clickX / rect.width) * naturalWidth);
+                const yPx = Math.round((clickY / rect.height) * naturalHeight);
+                coordDisplay.textContent = `X: ${xPx}px (${xP}%), Y: ${yPx}px (${yP}%)`;
+            }
+        });
+
+        function renderPoints() {
+            pinsLayer.innerHTML = '';
+            pointsList.innerHTML = '';
+            pointCount.textContent = points.length;
+
+            if (points.length === 0) {
+                pointsList.innerHTML = '<div class="text-center text-slate-500 py-10">Haz clic sobre la imagen para añadir puntos de mapeo.</div>';
+                return;
+            }
+
+            points.forEach((pt, index) => {
+                // Render visual pin on image
+                const pin = document.createElement('div');
+                pin.className = 'absolute w-6 h-6 -ml-3 -mt-3 bg-indigo-600 border-2 border-white rounded-full flex items-center justify-center text-xs font-bold text-white shadow-md transition transform hover:scale-125';
+                pin.style.left = `${pt.xPercent}%`;
+                pin.style.top = `${pt.yPercent}%`;
+                pin.textContent = index + 1;
+                pinsLayer.appendChild(pin);
+
+                // Render list item
+                const item = document.createElement('div');
+                item.className = 'bg-slate-900 border border-slate-700 p-2.5 rounded-lg flex items-center justify-between gap-2';
+                item.innerHTML = `
+                    <div class="flex items-center gap-2 flex-1">
+                        <span class="bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">${index + 1}</span>
+                        <input type="text" value="${pt.label}" data-id="${pt.id}" class="label-input bg-transparent text-slate-200 text-xs border-b border-transparent hover:border-slate-500 focus:border-indigo-500 focus:outline-none w-full">
+                    </div>
+                    <div class="text-xs text-slate-400 whitespace-nowrap">
+                        ${pt.xPixel}px (${pt.xPercent}%)
+                    </div>
+                    <button onclick="removePoint(${pt.id})" class="text-slate-500 hover:text-red-400 p-1">✕</button>
+                `;
+                pointsList.appendChild(item);
+            });
+
+            // Attach label change listeners
+            document.querySelectorAll('.label-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const id = parseInt(e.target.getAttribute('data-id'));
+                    const found = points.find(p => p.id === id);
+                    if (found) found.label = e.target.value;
+                });
+            });
+        }
+
+        window.removePoint = function(id) {
+            points = points.filter(p => p.id !== id);
+            // Re-index remaining points
+            points.forEach((p, idx) => p.id = idx + 1);
+            renderPoints();
+        }
+
+        clearBtn.addEventListener('click', () => {
+            points = [];
+            renderPoints();
+        });
+
+        // Export data
+        exportBtn.addEventListener('click', () => {
+            if (points.length === 0) {
+                showToast('No hay puntos para exportar', true);
+                return;
+            }
+
+            const format = exportFormat.value;
+            let output = '';
+
+            if (format === 'json') {
+                output = JSON.stringify(points, null, 2);
+            } else if (format === 'canva') {
+                output = `--- GUÍA DE REFERENCIA PARA CANVA ---\nResolución base: ${naturalWidth}x${naturalHeight}px\n\n` + 
+                    points.map(p => `• [${p.label}] -> Posición X: ${p.xPercent}% (${p.xPixel}px), Y: ${p.yPercent}% (${p.yPixel}px)`).join('\n');
+            } else if (format === 'html') {
+                output = `<img src="imagen.jpg" usemap="#image-map">\n\n<map name="image-map">\n` +
+                    points.map(p => `    <!-- ${p.label} -->\n    <area target="" alt="${p.label}" title="${p.label}" href="#" coords="${p.xPixel},${p.yPixel},15" shape="circle">`).join('\n') +
+                    `\n</map>`;
+            } else if (format === 'css') {
+                output = `/* Contenedor padre: position: relative; width: ${naturalWidth}px; */\n\n` +
+                    points.map(p => `/* ${p.label} */\n.hotspot-${p.id} {\n  position: absolute;\n  left: ${p.xPercent}%;\n  top: ${p.yPercent}%;\n}`).join('\n\n');
+            }
+
+            // Copy to clipboard using document.execCommand fallback safety
+            const textarea = document.createElement('textarea');
+            textarea.value = output;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast('¡Datos copiados al portapapeles!');
+            } catch (err) {
+                showToast('Error al copiar', true);
+            }
+            document.body.removeChild(textarea);
+        });
+
+        function showToast(message, isError = false) {
+            toast.textContent = message;
+            toast.className = `fixed bottom-5 right-5 text-white text-sm px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 z-50 ${isError ? 'bg-red-600' : 'bg-emerald-600'} opacity-100`;
+            setTimeout(() => {
+                toast.className = 'fixed bottom-5 right-5 text-white text-sm px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 opacity-0 pointer-events-none z-50';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
